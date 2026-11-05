@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>QQ飞车 · 城镇高速公路 3D</title>
+<meta name="description" content="浏览器 3D 卡丁车竞速：漂移集气 / 小喷 / 双喷 / 氮气加速，还原 QQ飞车 操作手感" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1620'/%3E%3Cpath d='M6 21h20l-3-7h-6l-2-4H9l-3 11z' fill='%2300e5ff'/%3E%3Ccircle cx='11' cy='23' r='3' fill='%23fff'/%3E%3Ccircle cx='23' cy='23' r='3' fill='%23fff'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- ============ HUD ============ -->
+<div id="hud" class="hidden">
+  <div class="hud-tl">
+    <div class="panel panel-lap">
+      <span class="label">圈数 LAP</span>
+      <b><span id="lap">1</span><em>/<span id="lapTotal">3</span></em></b>
+    </div>
+    <div class="panel">
+      <span class="label">总时间</span>
+      <b id="time">0:00.00</b>
+    </div>
+    <div class="panel">
+      <span class="label">本圈</span>
+      <b id="curlap">0:00.00</b>
+    </div>
+    <div class="panel">
+      <span class="label">最快圈</span>
+      <b id="best">--:--.--</b>
+    </div>
+  </div>
+
+  <div class="hud-tr">
+    <div class="pos-wrap">
+      <div class="label">名次</div>
+      <div class="pos"><span id="position">1</span><i>/<span id="totalKarts">4</span></i></div>
+    </div>
+    <div id="ranklist" class="ranklist"></div>
+  </div>
+
+  <div class="hud-minimap">
+    <canvas id="minimap" width="200" height="200"></canvas>
+    <div class="mm-title">城镇高速公路</div>
+  </div>
+
+  <div class="hud-br">
+    <div class="speedo-wrap">
+      <canvas id="speedo" width="240" height="240"></canvas>
+      <div class="nos">
+        <div class="nos-head"><span>NOS</span><b id="nosPct">0%</b></div>
+        <div class="nos-bar"><i id="nosFill"></i></div>
+        <div class="nos-tip" id="nosTip">漂移集气</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="drift-wrap" id="driftWrap">
+    <div class="drift-head"><span>漂移集气</span><b id="driftTier">—</b></div>
+    <div class="drift-bar"><i id="driftFill"></i><u></u></div>
+    <div class="drift-hint" id="driftHint">Shift + 方向键 起漂</div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+  <div id="countdown" class="countdown"></div>
+  <div id="boostFx" class="boost-fx"></div>
+  <div class="hintbar">
+    <span><kbd>↑</kbd><kbd>W</kbd> 加速</span>
+    <span><kbd>←</kbd><kbd>→</kbd> <kbd>A</kbd><kbd>D</kbd> 转向</span>
+    <span><kbd>Shift</kbd> 漂移</span>
+    <span><kbd>Ctrl</kbd> 氮气</span>
+    <span><kbd>R</kbd> 复位</span>
+    <span><kbd>C</kbd> 视角</span>
+    <span><kbd>Esc</kbd> 暂停</span>
+    <span><kbd>M</kbd> 静音</span>
+  </div>
+</div>
+
+<!-- ============ 开始界面 ============ -->
+<div id="startScreen" class="overlay">
+  <div class="ov-bg"></div>
+  <div class="start-card">
+    <div class="start-tag">QQ SPEED 3D · WEB RACING</div>
+    <h1>城镇高速公路</h1>
+    <div class="sub">2.95 km · 3 圈 · 4 车竞速 · 漂移集气</div>
+
+    <div class="keys-grid">
+      <div class="krow"><kbd>↑</kbd><kbd>W</kbd><span>加速</span></div>
+      <div class="krow"><kbd>↓</kbd><kbd>S</kbd><span>刹车 / 倒车</span></div>
+      <div class="krow"><kbd>←</kbd><kbd>A</kbd><span>左转</span></div>
+      <div class="krow"><kbd>→</kbd><kbd>D</kbd><span>右转</span></div>
+      <div class="krow"><kbd>Shift</kbd><kbd>Space</kbd><span>漂移</span></div>
+      <div class="krow"><kbd>Ctrl</kbd><kbd>J</kbd><span>氮气加速</span></div>
+      <div class="krow"><kbd>R</kbd><span>回到赛道</span></div>
+      <div class="krow"><kbd>C</kbd><span>切换视角</span></div>
+      <div class="krow"><kbd>Esc</kbd><span>暂停 / 键位</span></div>
+    </div>
+
+    <div class="tips">
+      <p><b>漂移</b>：高速中按住 <kbd>Shift</kbd> + 方向键。漂移角度越大、速度越高，集气越快。</p>
+      <p><b>小喷</b>：漂移集气到一半以上再松开 <kbd>Shift</kbd>，出弯瞬间获得加速。</p>
+      <p><b>完美漂移</b>：集气槽接近满格时松手 → 更强小喷 + 额外氮气。</p>
+      <p><b>双喷</b>：小喷后 0.5 秒内再点一下漂移键并快速松开，连喷！</p>
+      <p><b>氮气</b>：进度条满时按 <kbd>Ctrl</kbd> 释放，尾焰变蓝，极速提升。</p>
+      <p><b>起步加速</b>：倒计时到 <b>1</b> 的瞬间按住加速键。</p>
+    </div>
+
+    <button id="btnStart" class="btn">开始比赛</button>
+    <div class="foot">建议使用 Chrome / Edge · 键盘操作 · 音效需点击后开启</div>
+  </div>
+</div>
+
+<!-- ============ 暂停 ============ -->
+<div id="pauseScreen" class="overlay hidden">
+  <div class="start-card small">
+    <h2>已暂停</h2>
+    <div class="keys-grid">
+      <div class="krow"><kbd>↑</kbd><kbd>W</kbd><span>加速</span></div>
+      <div class="krow"><kbd>↓</kbd><kbd>S</kbd><span>刹车 / 倒车</span></div>
+      <div class="krow"><kbd>←</kbd><kbd>A</kbd><span>左转</span></div>
+      <div class="krow"><kbd>→</kbd><kbd>D</kbd><span>右转</span></div>
+      <div class="krow"><kbd>Shift</kbd><kbd>Space</kbd><span>漂移</span></div>
+      <div class="krow"><kbd>Ctrl</kbd><kbd>J</kbd><span>氮气</span></div>
+      <div class="krow"><kbd>R</kbd><span>回到赛道</span></div>
+      <div class="krow"><kbd>C</kbd><span>切换视角</span></div>
+      <div class="krow"><kbd>M</kbd><span>静音</span></div>
+    </div>
+    <div class="row-btns">
+      <button id="btnResume" class="btn">继续 (Esc)</button>
+      <button id="btnRestart" class="btn ghost">重新开始 (Enter)</button>
+    </div>
+    <div class="foot">漂移集气 → 松手小喷 → 满槽氮气</div>
+  </div>
+</div>
+
+<!-- ============ 结算 ============ -->
+<div id="resultScreen" class="overlay hidden">
+  <div class="start-card small result-card">
+    <div class="start-tag">RACE RESULT</div>
+    <h1 id="resultTitle">比赛完成</h1>
+    <div id="resultTable" class="result-table"></div>
+    <div id="resultStats" class="result-stats"></div>
+    <div class="row-btns">
+      <button id="btnAgain" class="btn">再来一局 (Enter)</button>
+      <button id="btnMenu" class="btn ghost">返回菜单 (Esc)</button>
+    </div>
+    <div class="foot">Enter 重开 · Esc 返回菜单</div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

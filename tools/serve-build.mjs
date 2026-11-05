@@ -1,0 +1,27 @@
+import { chromium } from 'playwright-core';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { extname, join, normalize } from 'node:path';
+const ROOT = '/Users/jinlong/dev/github/hjkl01.github.io/build';
+const MIME = { '.html': 'text/html;charset=utf-8', '.js': 'text/javascript;charset=utf-8', '.css': 'text/css;charset=utf-8', '.json': 'application/json' };
+const server = createServer(async (req, res) => {
+  try { let p = decodeURIComponent(req.url.split('?')[0]);
+    if (p.endsWith('/')) p += 'index.html';
+    const f = join(ROOT, normalize(p)); const d = await readFile(f);
+    res.writeHead(200, { 'content-type': MIME[extname(f)] || 'application/octet-stream' }); res.end(d);
+  } catch { res.writeHead(404); res.end('nf'); } });
+await new Promise(r => server.listen(8177, r));
+const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-angle=metal'] });
+const page = await b.newPage({ viewport: { width: 1280, height: 720 } });
+const bad = [];
+page.on('pageerror', e => bad.push('ERR ' + e.message));
+page.on('response', r => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });
+await page.goto('http://localhost:8177/qqspeed/', { waitUntil: 'load' });
+await page.waitForTimeout(2000);
+const ok = await page.evaluate(() => !!window.__race && window.__race.game.phase);
+await page.keyboard.press('Enter');
+await page.evaluate(() => window.__race.step(6, 60));
+const st = await page.evaluate(() => ({ phase: window.__race.game.phase, kmh: Math.round(window.__race.player.speedKmh) }));
+await page.screenshot({ path: '/tmp/deploy-check.png' });
+console.log(JSON.stringify({ ok, st, bad }));
+await b.close(); server.close();

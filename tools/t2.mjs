@@ -1,0 +1,24 @@
+import { chromium } from 'playwright-core';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { extname, join, normalize } from 'node:path';
+const ROOT = '/Users/jinlong/dev/github/qq-speed-3d';
+const MIME = { '.html':'text/html;charset=utf-8', '.js':'text/javascript;charset=utf-8', '.css':'text/css;charset=utf-8' };
+const server = createServer(async (req,res)=>{ try{ let p=req.url.split('?')[0]; if(p==='/')p='/index.html';
+ const f=join(ROOT, normalize(p)); const d=await readFile(f); res.writeHead(200,{'content-type':MIME[extname(f)]||'application/octet-stream'}); res.end(d);}catch(e){res.writeHead(404);res.end('x');}});
+await new Promise(r=>server.listen(8131,r));
+const b = await chromium.launch({ channel:'chrome', headless:true, args:['--use-angle=metal'] });
+const page = await b.newPage();
+page.on('pageerror',e=>console.log('ERR',e.message));
+await page.goto('http://localhost:8131/index.html');
+await page.waitForTimeout(1200);
+console.log(await page.evaluate(()=>{
+  const r = window.__race, T = r.track;
+  const out = { total:+T.total.toFixed(1), n:T.n, startS:T.startS, half:T.half };
+  out.samples = [0,1,2,3,5,10,20,40,80].map(i=>{const p=T.pts[i]; return [i, +p.s.toFixed(1), +p.x.toFixed(1), +p.z.toFixed(1), +p.th.toFixed(2), p.rightx!==undefined?+p.rightx.toFixed(2):'nr'];});
+  out.query = [0,5,10,15,20,30].map(x=>{const q=T.query(x,0,-1); return [x, +q.s.toFixed(1), +q.offset.toFixed(1), +q.th.toFixed(2)];});
+  out.grid = [0,1,2,3].map(i=>{const g=T.gridSlot(i); return [+g.x.toFixed(1),+g.z.toFixed(1),+g.y.toFixed(1),+g.th.toFixed(2),+g.s.toFixed(1)];});
+  out.karts = r.karts.map(k=>[k.name, +k.pos.x.toFixed(1), +k.pos.z.toFixed(1), +k.th.toFixed(2)]);
+  return JSON.stringify(out,null,1);
+}));
+await b.close(); server.close();

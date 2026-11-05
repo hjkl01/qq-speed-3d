@@ -1,0 +1,17 @@
+import { chromium } from 'playwright-core';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { extname, join, normalize } from 'node:path';
+const ROOT = '/Users/jinlong/dev/github/qq-speed-3d';
+const MIME = { '.html':'text/html;charset=utf-8', '.js':'text/javascript;charset=utf-8', '.css':'text/css;charset=utf-8' };
+const server = createServer(async (req,res)=>{ try{ let p=req.url.split('?')[0]; if(p==='/')p='/index.html';
+ const f=join(ROOT, normalize(p)); const d=await readFile(f); res.writeHead(200,{'content-type':MIME[extname(f)]||'application/octet-stream'}); res.end(d);}catch(e){res.writeHead(404);res.end('x');}});
+await new Promise(r=>server.listen(8151,r));
+const b = await chromium.launch({ channel:'chrome', headless:true, args:['--use-angle=metal'] });
+const page = await b.newPage();
+page.on('request', r=>{ if(!r.url().includes('localhost:8151')) console.log('REQ', r.url().slice(0,90)); });
+page.on('requestfailed', r=>console.log('FAIL', r.url().slice(0,90), r.failure()?.errorText));
+page.on('response', r=>{ if(r.status()>=400) console.log('BAD', r.status(), r.url()); });
+await page.goto('http://localhost:8151/index.html');
+await page.waitForTimeout(2500);
+await b.close(); server.close();
