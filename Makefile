@@ -8,7 +8,7 @@ help:
 	@echo "make serve   本地预览（http://localhost:8080）"
 	@echo "make dist    生成可部署的静态产物到 dist/"
 	@echo "make deploy  构建并部署到 Cloudflare Pages（需要先 npx wrangler login）"
-	@echo "make check   跑自动化自检（AI 跑完 3 圈 / 键盘手感 / 截图）"
+	@echo "make check   跑自动化自检（AI 跑完 3 圈 / 键盘手感 / 撞墙 / 弯道视线）"
 
 serve:
 	@echo "🌐 http://localhost:8080"
@@ -29,3 +29,4 @@ check:
 	node tools/laps.mjs
 	node tools/feel.mjs
 	node tools/wall.mjs
+	node tools/camlook.mjs

@@ -127,27 +127,25 @@ function updateCamera(dt, racing) {
   const k = camKart;
   const sp = Math.abs(k.speed);
   const spN = clamp(sp / CFG.maxSpeed, 0, 1);
-  // 车头角先低通：漂移时车头会高频小幅摆动，镜头只跟它的“趋势”
-  if (!cam.init || cam.thSmooth === undefined) cam.thSmooth = k.th;
-  cam.thSmooth += angleDiff(cam.thSmooth, k.th) * (1 - Math.exp(-5 * dt));
-  // 漂移时视线偏向行进方向；镜头再慢一档跟随，避免车头摆动带着画面甩
-  const driftBlend = angleDiff(k.th, k.course);
-  // 第一人称就在车头，必须紧跟；追尾视角才慢慢跟
   const fp = cam.mode === 2;
-  const targetYaw = fp ? k.th : cam.thSmooth + driftBlend * (k.drifting ? 0.5 : 0.25);
-  const yawStep = angleDiff(cam.yaw, targetYaw) * (1 - Math.exp(-(fp ? 16 : 2.2) * dt));
-  // 再给镜头转向速度封顶，急打方向时画面不会跟着“抽”
-  const cap = (fp ? 6 : 1.35) * dt;
-  cam.yaw += clamp(yawStep, -cap, cap);
 
   let dist, height, lookAhead, lookHeight;
   if (cam.mode === 2) {
     dist = -0.2; height = 1.35; lookAhead = 26; lookHeight = 1.0;
   } else if (cam.mode === 1) {
-    dist = 13 + spN * 2.6; height = 5.2 + spN * 0.8; lookAhead = 12 + spN * 8; lookHeight = 1.8;
+    dist = 13 + spN * 2.6; height = 5.2 + spN * 0.8; lookAhead = 20 + spN * 22; lookHeight = 1.8;
   } else {
-    dist = 8.0 + spN * 2.2; height = 3.15 + spN * 0.5; lookAhead = 10 + spN * 9; lookHeight = 1.5;
+    dist = 8.0 + spN * 2.2; height = 3.15 + spN * 0.5; lookAhead = 14 + spN * 20; lookHeight = 1.5;
   }
+
+  // 视线看的是“赛道路面”而不是车头：弯里车头/漂移角是偏的，跟着车头看就只剩外侧墙了。
+  const q = track.query(k.pos.x, k.pos.z, k.hint);
+  const ahead = track.at(q.s + lookAhead);
+  const wantYaw = fp ? k.th : Math.atan2(ahead.z - k.pos.z, ahead.x - k.pos.x);
+  const yawStep = angleDiff(cam.yaw, wantYaw) * (1 - Math.exp(-(fp ? 16 : 7) * dt));
+  // 速度封顶只防复位/自旋瞬间甩帧，正常转向（≤2.55rad/s）不会被它卡住
+  const cap = (fp ? 6 : 4) * dt;
+  cam.yaw += clamp(yawStep, -cap, cap);
 
   const fx = Math.cos(cam.yaw), fz = Math.sin(cam.yaw);
   const desired = new THREE.Vector3(
@@ -155,13 +153,9 @@ function updateCamera(dt, racing) {
     k.pos.y + height,
     k.pos.z - fz * dist,
   );
-  // 注视方向以平滑后的镜头朝向为主，只留 18% 反映车头瞬时朝向
-  const lookYaw = fp ? k.th : cam.yaw + angleDiff(cam.yaw, cam.thSmooth) * 0.15;
-  const lookTarget = new THREE.Vector3(
-    k.pos.x + Math.cos(lookYaw) * lookAhead,
-    k.pos.y + lookHeight,
-    k.pos.z + Math.sin(lookYaw) * lookAhead,
-  );
+  const lookTarget = fp
+    ? new THREE.Vector3(k.pos.x + fx * lookAhead, k.pos.y + lookHeight, k.pos.z + fz * lookAhead)
+    : new THREE.Vector3(ahead.x, ahead.y + lookHeight, ahead.z);
 
   if (!cam.init) {
     cam.pos.copy(desired);
