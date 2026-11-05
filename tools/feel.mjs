@@ -81,6 +81,20 @@ const r0 = await page.evaluate(() => {
   const q = r.track.query(r.player.pos.x, r.player.pos.z, r.player.hint);
   return { off: +q.offset.toFixed(1), kmh: +r.player.speedKmh.toFixed(0) };
 });
+// 轻点方向键的车头摆动幅度（键盘是开关量，不能一碰就甩十几度）
+const swing = await page.evaluate(async () => {
+  const { Kart } = await import('./js/kart.js');
+  const track = window.__race.track;
+  const k = new Kart(track, { name: 'T' });
+  const s = track.total * 0.02, p = track.at(s);
+  k.pos.set(p.x, p.y, p.z); k.th = p.th; k.course = p.th; k.speed = 130 / 3.6; k.sPrev = s;
+  const th0 = k.th, dt = 1 / 60;
+  for (let i = 0; i < 9; i++) k.update(dt, { throttle: true, brake: false, steer: 1, drift: false }, i * dt);
+  for (let i = 0; i < 8; i++) k.update(dt, { throttle: true, brake: false, steer: 0, drift: false }, 1);
+  return +((k.th - th0) * 180 / Math.PI).toFixed(1);
+});
+const fail = swing > 9 ? [`轻点方向键车头转了 ${swing}°（上限 9°）`] : [];
+
 // 相机 / 暂停 / 静音
 await page.keyboard.press('KeyC');
 const camMode = await page.evaluate(() => window.__race.cam.mode);
@@ -98,6 +112,6 @@ const muted = await page.evaluate(() => {
 });
 await page.keyboard.press('KeyM');
 
-console.log(JSON.stringify({ a0, a1, d0, d1, m0, dbl, m1, n0, n1, r0, camMode, paused, resumed, muted, errs }, null, 1));
+console.log(JSON.stringify({ a0, a1, d0, d1, m0, dbl, m1, n0, n1, r0, swing, camMode, paused, resumed, muted, errs, fail }, null, 1));
 await b.close();
 server.close();

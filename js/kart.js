@@ -11,6 +11,7 @@ export const CFG = {
   gripDrift: 3.0,
   steerLow: 2.55,        // rad/s
   steerHigh: 1.28,
+  steerRamp: 0.32,       // s，键盘是开关量：给转向输入一个爬升时间，轻点方向键只微调车头
   driftYaw: 0.85,        // 漂移基础角速度
   driftYawSteer: 0.75,
   maxSlip: 0.70,
@@ -212,7 +213,7 @@ export class Kart {
     const throttle = input.throttle ? 1 : 0;
     const brake = input.brake ? 1 : 0;
     const steerIn = clamp(input.steer ?? 0, -1, 1);
-    this.steer = lerp(this.steer, steerIn, 1 - Math.pow(0.001, dt));
+    this.steer = lerp(this.steer, steerIn, 1 - Math.exp(-dt / CFG.steerRamp));
 
     // 计时器
     if (this.boostTime > 0) {
@@ -239,7 +240,7 @@ export class Kart {
     } else {
       const turn = lerp(CFG.steerLow, CFG.steerHigh, speedFactor);
       const gripTurn = Math.min(1, asp / 5) * (sp < 0 ? -1 : 1);
-      this.th += steerIn * turn * gripTurn * dt;
+      this.th += this.steer * turn * gripTurn * dt;   // 用平滑后的 steer：轻点方向键只微调车头
     }
 
     // ---- 抓地：速度方向追随车头
