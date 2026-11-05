@@ -18,6 +18,7 @@ export class Input {
   constructor() {
     this.down = new Set();
     this.just = new Set();
+    this.codes = new Map(); // 动作 → 仍按着的物理键（W 和 ↑ 都是 up，松开一个不能把另一个的油门清掉）
     this.blocked = new Set(['up', 'down', 'left', 'right', 'drift', 'nitro', 'pause']);
     window.addEventListener('keydown', (e) => {
       const act = MAP[e.code];
@@ -25,17 +26,22 @@ export class Input {
       if (this.blocked.has(act)) e.preventDefault();
       if (!this.down.has(act)) this.just.add(act);
       this.down.add(act);
+      if (!this.codes.has(act)) this.codes.set(act, new Set());
+      this.codes.get(act).add(e.code);
     });
     window.addEventListener('keyup', (e) => {
       const act = MAP[e.code];
       if (!act) return;
       if (this.blocked.has(act)) e.preventDefault();
-      this.down.delete(act);
+      const held = this.codes.get(act);
+      if (held) held.delete(e.code);
+      if (!held || held.size === 0) this.down.delete(act);
+      if (held && held.size === 0) this.codes.delete(act);
     });
     window.addEventListener('blur', () => this.clear());
   }
 
-  clear() { this.down.clear(); this.just.clear(); }
+  clear() { this.down.clear(); this.just.clear(); this.codes.clear(); }
 
   has(a) { return this.down.has(a); }
 

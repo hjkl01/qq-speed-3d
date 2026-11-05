@@ -53,10 +53,28 @@ await step(7);                         // 233km/h 撞墙
 const hit = await kmh();
 await step(1);
 const scrape = await kmh();
+
+// 斜插撞墙后不转向：墙要把车头推正，否则滑移角每帧把速度方向压回墙里，油门再大也白给
+await page.evaluate(() => {
+  const r = window.__race, p = r.player, q = r.track.query(p.pos.x, p.pos.z, p.hint);
+  p.pos.x += q.rightx * (q.half + 0.5);
+  p.pos.z += q.rightz * (q.half + 0.5);
+  p.hint = -1;
+  p.th = Math.atan2(q.rightz, q.rightx) - Math.PI / 3;   // 车头斜着扎进墙
+  p.course = p.th;
+  p.speed = 40;
+});
+await step(1.5);
+const steer0 = await page.evaluate(() => +window.__race.player.speedKmh.toFixed(0));
+const slip = await page.evaluate(() => +Math.abs(window.__race.player.slip).toFixed(2));
+await step(2);
+const steer1 = await kmh();
 await page.keyboard.up('ArrowUp');
 await b.close(); server.close();
 
 if (!(stuck > 30)) fail.push(`顶墙后按住 W 仍起不来：${stuck}km/h`);
 if (!(scrape > 120)) fail.push(`贴墙滑行掉速过多：撞墙 ${hit}km/h → ${scrape}km/h`);
-console.log(JSON.stringify({ stuck, hit, scrape, errs, fail }, null, 1));
+if (slip > 0.25) fail.push(`斜插撞墙后车头没被推正，滑移角 ${slip}rad`);
+if (!(steer1 > steer0 + 15)) fail.push(`斜插撞墙后加不了速：${steer0} → ${steer1}km/h`);
+console.log(JSON.stringify({ stuck, hit, scrape, steer0, slip, steer1, errs, fail }, null, 1));
 if (errs.length || fail.length) process.exit(1);

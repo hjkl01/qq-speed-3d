@@ -36,6 +36,14 @@ await page.keyboard.press('KeyR'); await page.evaluate(() => window.__race.step(
 await run('KeyW', 1.5);
 const before2 = await st();
 await run('KeyD', 0.6); r.afterD = { ...(await st()), dth: +((await st()).th - before2.th).toFixed(3) };
+// W 和 ↑ 同时按，松开其中一个：油门不能跟着断（曾经 keyup 直接按动作删）
+await page.evaluate(() => window.__race.input.clear());
+await page.keyboard.down('KeyW'); await page.keyboard.down('ArrowUp');
+await page.keyboard.up('ArrowUp');
+r.dualUp = await page.evaluate(() => window.__race.input.throttle);
+await page.keyboard.up('KeyW');
+r.dualUpReleased = await page.evaluate(() => window.__race.input.throttle);
+
 // S 刹车
 await run('KeyW', 1.5);
 const v1 = (await st()).kmh;

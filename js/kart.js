@@ -323,6 +323,9 @@ export class Kart {
       const head = clamp(vn / Math.max(asp, 1), 0, 1);
       this.speed = Math.sign(this.speed) * Math.max(0, mag - (12 + 24 * head) * dt);
       if (mag > 0.4) this.course = Math.atan2(rvz, rvx);
+      // 车身被墙推正：否则车头一直斜插在墙里，抓地力每帧把速度方向压回墙内，
+      // 油门再大也顶不过撞墙减速，看起来像“W 失效”
+      this.th += angleDiff(this.th, this.course) * Math.min(1, 6 * dt);
       if (vn > 2.5 && this.hitFlash <= 0) {
         this.hitFlash = 0.35;
         this.emit('wallHit', { power: Math.min(1, vn / 26) });
